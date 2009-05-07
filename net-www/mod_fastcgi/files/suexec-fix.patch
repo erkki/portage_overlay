@@ -1,0 +1,99 @@
+diff -urN mod_fastcgi-2.4.2.org/fcgi_pm.c mod_fastcgi-2.4.2/fcgi_pm.c
+--- mod_fastcgi-2.4.2.org/fcgi_pm.c     2004-03-07 18:43:25.801230680 +0100
++++ mod_fastcgi-2.4.2/fcgi_pm.c 2004-03-07 22:39:30.635790455 +0100
+@@ -756,6 +756,7 @@
+ static void reduce_privileges(void)
+ {
+     const char *name;
++    int have_user_name = 1;
+
+     if (geteuid() != 0)
+         return;
+@@ -767,16 +768,23 @@
+         struct passwd *ent = getpwuid(uid);
+
+         if (ent == NULL) {
++           have_user_name = 0;
++           name = &ap_user_name[1];
++           if (name == NULL) {
+             ap_log_error(FCGI_LOG_ALERT, fcgi_apache_main_server,
+                 "FastCGI: process manager exiting, getpwuid(%u) couldn't determine user name, "
+                 "you probably need to modify the User directive", (unsigned)uid);
+             exit(1);
+-        }
+-        name = ent->pw_name;
++           }
++        } else
++           name = ent->pw_name;
+     }
+     else
+         name = ap_user_name;
+
++    ap_log_error(FCGI_LOG_ALERT, fcgi_apache_main_server, "name=[%s]", name);
++
++
+     /* Change Group */
+     if (setgid(ap_group_id) == -1) {
+         ap_log_error(FCGI_LOG_ALERT, fcgi_apache_main_server,
+@@ -787,7 +795,7 @@
+     /* See Apache PR2580. Until its resolved, do it the same way CGI is done.. */
+
+     /* Initialize supplementary groups */
+-    if (initgroups(name, ap_group_id) == -1) {
++    if (have_user_name && initgroups(name, ap_group_id) == -1) {
+         ap_log_error(FCGI_LOG_ALERT, fcgi_apache_main_server,
+             "FastCGI: process manager exiting, initgroups(%s,%u) failed",
+             name, (unsigned)ap_group_id);
+@@ -1132,13 +1140,16 @@
+                     s->uid = (uid_t)atol(user);
+                     pw = getpwuid(s->uid);
+                     if (!pw) {
++                       s->username = ap_psprintf(sp, "%ld", (long)s->uid);
++                       /*
+                         ap_log_error(FCGI_LOG_CRIT, fcgi_apache_main_server,
+                             "FastCGI: can't create (dynamic) server \"%s\": can't get uid/gid for wrapper: getwpuid(%ld) failed",
+                             execName, (long)s->uid);
+                         goto BagNewServer;
+-                    }
++                       */
++                    } else
++                       s->username = ap_pstrdup(sp, pw->pw_name);
+                     s->user = ap_pstrdup(sp, user);
+-                    s->username = ap_pstrdup(sp, pw->pw_name);
+
+                     s->gid = (gid_t)atol(group);
+                     s->group = ap_pstrdup(sp, group);
+diff -urN mod_fastcgi-2.4.2.org/fcgi_util.c mod_fastcgi-2.4.2/fcgi_util.c
+--- mod_fastcgi-2.4.2.org/fcgi_util.c   2004-03-07 18:43:25.803230257 +0100
++++ mod_fastcgi-2.4.2/fcgi_util.c       2004-03-07 22:39:30.637790026 +0100
+@@ -462,23 +462,27 @@
+     s->uid = uid;
+     pw = getpwuid(uid);
+     if (pw == NULL) {
++       s->user = ap_psprintf(p, "%ld", uid);
++       if (s->user == NULL)
+         return ap_psprintf(p,
+             "getpwuid() couldn't determine the username for uid '%ld', "
+             "you probably need to modify the User directive: %s",
+             (long)uid, strerror(errno));
+-    }
+-    s->user = ap_pstrdup(p, pw->pw_name);
++    } else
++       s->user = ap_pstrdup(p, pw->pw_name);
+     s->username = s->user;
+
+     s->gid = gid;
+     gr = getgrgid(gid);
+     if (gr == NULL) {
++       s->group = ap_psprintf(p, "%ld", gid);
++       if (s->group == NULL)
+         return ap_psprintf(p,
+             "getgrgid() couldn't determine the group name for gid '%ld', "
+             "you probably need to modify the Group directive: %s",
+             (long)gid, strerror(errno));
+-    }
+-    s->group = ap_pstrdup(p, gr->gr_name);
++    } else
++       s->group = ap_pstrdup(p, gr->gr_name);
+
+ #endif /* !WIN32 */

@@ -1,0 +1,12 @@
+diff -Naur watchdog-5.2.6.old/src/test_binary.c watchdog-5.2.6.orig/src/test_binary.c
+--- watchdog-5.2.6.old/src/test_binary.c	2006-06-22 12:20:16.000000000 +0300
++++ watchdog-5.2.6.orig/src/test_binary.c	2006-09-09 00:17:03.000000000 +0300
+@@ -68,7 +68,7 @@
+ int check_bin(char *tbinary, time_t timeout)
+ {
+     pid_t child_pid;
+-    int result, res;
++    int result, res = 0;
+ 
+     if (timeout > 0)
+ 	    res = check_processes(timeout);

@@ -1,0 +1,29 @@
+diff -Naur watchdog-5.2.6.old/src/wd_keepalive.c watchdog-5.2.6.orig/src/wd_keepalive.c
+--- watchdog-5.2.6.old/src/wd_keepalive.c	2006-04-17 18:37:50.000000000 +0300
++++ watchdog-5.2.6.orig/src/wd_keepalive.c	2006-09-08 20:30:42.000000000 +0300
+@@ -73,8 +73,15 @@
+ /* close the device and check for error */
+ static void close_all()
+ {
+-    if ( watchdog != -1 && close(watchdog) == -1 ) {
+-        syslog(LOG_ALERT, "cannot close %s", devname);
++    if ( watchdog != -1 ) {
++        if ( write(watchdog, "V", 1) < 0 ) {
++            syslog(LOG_ALERT, "failed to write 'V' before closing", devname);
++        } else {
++            fsync(watchdog);
++        }
++        if ( close(watchdog) == -1 ) {
++            syslog(LOG_ALERT, "cannot close %s", devname);
++        }
+     }
+ }
+ 
+@@ -278,6 +285,7 @@
+             int err = errno;
+             syslog(LOG_ERR, "write watchdog device gave error %d = '%m'!", err);
+         }
++        fsync(watchdog);
+ 
+         /* finally sleep some seconds */
+         sleep(tint);

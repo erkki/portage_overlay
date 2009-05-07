@@ -1,0 +1,41 @@
+--- suexec.c.org        2003-07-23 23:53:42.000000000 +0200
++++ suexec.c    2004-03-07 22:37:44.310575351 +0100
+@@ -280,6 +280,7 @@
+     char cwd[AP_MAXPATH];   /* current working directory */
+     char dwd[AP_MAXPATH];   /* docroot working directory */
+     struct passwd *pw;      /* password entry holder     */
++    struct passwd tpw;
+     struct group *gr;       /* group entry holder        */
+     struct stat dir_info;   /* directory info holder     */
+     struct stat prg_info;   /* program info holder       */
+@@ -402,8 +403,14 @@
+     }
+     else {
+         if ((pw = getpwuid(atoi(target_uname))) == NULL) {
++           tpw.pw_name = strdup(target_uname);
++           tpw.pw_uid = atoi(target_uname);
++           tpw.pw_dir = "/tmp";
++           pw = &tpw;
++           if (tpw.pw_uid < 0) {
+             log_err("invalid target user id: (%s)\n", target_uname);
+             exit(121);
++           }
+         }
+     }
+
+@@ -583,6 +590,7 @@
+      * Error out if the target name/group is different from
+      * the name/group of the cwd or the program.
+      */
++    /*
+     if ((uid != dir_info.st_uid) ||
+         (gid != dir_info.st_gid) ||
+         (uid != prg_info.st_uid) ||
+@@ -594,6 +602,7 @@
+                 prg_info.st_uid, prg_info.st_gid);
+         exit(120);
+     }
++    */
+     /*
+      * Error out if the program is not executable for the user.
+      * Otherwise, she won't find any error in the logs except for
